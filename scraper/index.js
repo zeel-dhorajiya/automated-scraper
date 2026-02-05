@@ -27,11 +27,23 @@ async function run() {
     try {
         // 2. Fetch and Scrape
         console.log(`Fetching ${TARGET_URL}...`);
-        const response = await fetch(TARGET_URL);
+
+        // Add User-Agent to avoid basic bot detection
+        const response = await fetch(TARGET_URL, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        });
+
+        console.log(`Response Status: ${response.status}`);
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
         const html = await response.text();
         const $ = cheerio.load(html);
+
+        // DEBUG: Log the page title to check for blocking (e.g. Cloudflare)
+        console.log(`Page Title: ${$('title').text().trim()}`);
+        console.log(`HTML Length: ${html.length}`);
 
         // Selector from the original project
         const selector = "a[href^='https://rewards.coinmaster.com'], a[href^='https://coinmaster.onelink.me']";
