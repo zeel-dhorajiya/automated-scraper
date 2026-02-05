@@ -1,69 +1,82 @@
 const admin = require('firebase-admin');
-const puppeteer = require('puppeteer');
+const cheerio = require('cheerio');
 const fs = require('fs');
 
+// --- CONFIGURATION ---
+const TARGET_URL = "https://levvvel.com/coin-master-free-spins-coins/";
+
 async function run() {
-  // 1. Initialize Firebase Admin
-  // IMPORTANT: serviceAccountKey.json must exist in this directory.
-  // In CI, this file is generated from a secret.
-  try {
-    const serviceAccount = JSON.parse(fs.readFileSync('./serviceAccountKey.json', 'utf8'));
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log('Firebase Admin initialized.');
-  } catch (error) {
-    console.error('Error initializing Firebase Admin. Make sure serviceAccountKey.json exists and is valid.');
-    console.error(error);
-    process.exit(1);
-  }
-
-  const db = admin.firestore();
-
-  // 2. Launch Puppeteer
-  // 'new' headless mode is recommended.
-  // No sandbox flags are needed for many CI environments, especially simplified ones.
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-
-  try {
-    const page = await browser.newPage();
-    
-    // 3. Navigate and Scrape
-    const url = 'https://example.com';
-    console.log(`Navigating to ${url}...`);
-    await page.goto(url);
-
-    const scrapedData = await page.evaluate(() => {
-      const title = document.querySelector('h1')?.innerText || 'No Title Found';
-      const content = document.querySelector('p')?.innerText || 'No Content Found';
-      return { title, content };
-    });
-
-    console.log('Scraped Data:', scrapedData);
-
-    // 4. Save to Firestore
-    const docRef = db.collection('scraped_data').doc();
-    await docRef.set({
-      title: scrapedData.title,
-      content: scrapedData.content,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    console.log(`Data saved to Firestore with ID: ${docRef.id}`);
-
-  } catch (error) {
-    console.error('Error during scraping:', error);
-    process.exit(1);
-  } finally {
-    if (browser) {
-      await browser.close();
+    // 1. Initialize Firebase Admin
+    try {
+        const serviceAccount = JSON.parse(fs.readFileSync('./serviceAccountKey.json', 'utf8'));
+        // Check if already initialized to avoid errors during local testing with re-runs
+        if (!admin.apps.length) {
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+        }
+        console.log('Firebase Admin initialized.');
+    } catch (error) {
+        console.error('Error initializing Firebase Admin. Make sure serviceAccountKey.json exists.');
+        console.error(error);
+        process.exit(1);
     }
-    // Explicitly exit to ensure the process finishes
-    process.exit(0);
-  }
+
+    const db = admin.firestore();
+
+    try {
+        // 2. Fetch and Scrape
+        console.log(`Fetching ${TARGET_URL}...`);
+        const response = await fetch(TARGET_URL);
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+
+        const html = await response.text();
+        const $ = cheerio.load(html);
+
+        // Selector from the original project
+        const selector = "a[href^='https://rewards.coinmaster.com'], a[href^='https://coinmaster.onelink.me']";
+        const elements = $(selector);
+
+        console.log(`Found ${elements.length} links.`);
+
+        if (elements.length === 0) {
+            console.log("No links found. Exiting.");
+            return;
+        }
+
+        const batch = db.batch();
+        const collectionRef = db.collection('scraped_data');
+        let count = 0;
+
+        elements.each((i, el) => {
+            const linkUrl = $(el).attr('href');
+            const linkTitle = $(el).text().trim() || "Free Reward";
+            // Logic mimicking source: check if title contains "coin"
+            const type = linkTitle.toLowerCase().includes("coin") ? "coins" : "spins";
+
+            // Create a unique ID based on the URL to prevent duplicates (optional, but good practice)
+            // For simplicity, we'll let Firestore generate IDs or just add new docs. 
+            // To avoid duplicates, we could query first, but for now we just add.
+            // Better approach for "latest" list: Just add them. The frontend limits to 20.
+
+            const docRef = collectionRef.doc(); // Auto-ID
+            batch.set(docRef, {
+                title: linkTitle,
+                url: linkUrl,
+                type: type,
+                timestamp: admin.firestore.FieldValue.serverTimestamp() // Server time
+            });
+            count++;
+        });
+
+        // 3. Save to Firestore
+        await batch.commit();
+        console.log(`Successfully saved ${count} links to Firestore.`);
+
+    } catch (error) {
+        console.error('Error during scraping:', error);
+        process.exit(1);
+    }
 }
 
 run();

@@ -1,35 +1,28 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// TODO: Replace the following with your app's Firebase project configuration
-// See: https://firebase.google.com/docs/web/learn-more#config-object
+// ⚠️ REPLACE THIS WITH YOUR FIREBASE CONFIG
 const firebaseConfig = {
-    // apiKey: "API_KEY",
-    // authDomain: "PROJECT_ID.firebaseapp.com",
-    // projectId: "PROJECT_ID",
-    // storageBucket: "PROJECT_ID.appspot.com",
-    // messagingSenderId: "SENDER_ID",
-    // appId: "APP_ID"
+    // Paste your config object here
 };
 
 // Check if config is set
 if (!firebaseConfig.projectId) {
-    document.getElementById('app').innerHTML = `
-        <div style="grid-column: 1/-1; color: red; text-align: center;">
-            <h2>Configuration Required</h2>
-            <p>Please update <code>frontend/app.js</code> with your Firebase Configuration.</p>
+    document.getElementById('links-container').innerHTML = `
+        <div style="text-align: center; color: red; padding: 20px;">
+            <h3>Configuration Required</h3>
+            <p>Please open <code>frontend/app.js</code> and add your Firebase Config.</p>
         </div>
     `;
     throw new Error("Firebase Config missing");
 }
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-async function fetchData() {
-    const appElement = document.getElementById('app');
+const linksContainer = document.getElementById('links-container');
 
+async function fetchLinks() {
     try {
         const q = query(
             collection(db, "scraped_data"),
@@ -40,30 +33,65 @@ async function fetchData() {
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-            appElement.innerHTML = '<div class="loading">No scraped data found yet.</div>';
+            renderEmptyState();
             return;
         }
 
-        appElement.innerHTML = ''; // Clear loading state
+        linksContainer.innerHTML = ''; // Clear loading
 
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-            const date = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : 'N/A';
-
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-                <h2>${data.title || 'No Title'}</h2>
-                <p class="content">${data.content || 'No content available'}</p>
-                <div class="timestamp">Scraped: ${date}</div>
-            `;
-            appElement.appendChild(card);
+            renderLinkItem(data);
         });
 
     } catch (error) {
         console.error("Error fetching documents: ", error);
-        appElement.innerHTML = `<div class="loading" style="color: red;">Error loading data: ${error.message}</div>`;
+        linksContainer.innerHTML = `<div style="text-align:center; color: red;">Error loading data.</div>`;
     }
 }
 
-fetchData();
+function renderLinkItem(link) {
+    const item = document.createElement('div');
+    item.className = 'list-item';
+
+    // Simple icon logic based on type
+    const iconChar = link.type === 'coins' ? 'C' : 'S'; // Placeholder since we don't have images yet
+    // If you want to use the images from the source project, you'd need to copy them to frontend/resources
+
+    const dateStr = link.timestamp ? new Date(link.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+    item.innerHTML = `
+        <div class="item-left">
+            <div class="item-icon ${link.type}">
+                ${iconChar}
+            </div>
+            <div class="item-info">
+                <h4>${link.title || 'Free Reward'}</h4>
+                <div class="meta">
+                    <span class="type-tag">${link.type || 'reward'}</span>
+                    <span class="time">${dateStr}</span>
+                </div>
+            </div>
+        </div>
+        <a href="${link.url}" target="_blank" class="btn-collect">GET</a>
+    `;
+
+    // Click effect
+    const btn = item.querySelector('.btn-collect');
+    btn.addEventListener('click', () => {
+        btn.classList.add('collected');
+        btn.innerText = "OPEN";
+    });
+
+    linksContainer.appendChild(item);
+}
+
+function renderEmptyState() {
+    linksContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <p>No links found yet.</p>
+        </div>
+    `;
+}
+
+fetchLinks();

@@ -1,10 +1,13 @@
 :root {
-    --primary-color: #2563eb;
-    --bg-color: #f8fafc;
+    --primary-color: #f59e0b;
+    /* Coin gold */
+    --secondary-color: #3b82f6;
+    /* Spin blue */
+    --bg-color: #f3f4f6;
     --card-bg: #ffffff;
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --border-color: #e2e8f0;
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --success-color: #22c55e;
 }
 
 body {
@@ -16,75 +19,127 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 600px;
+    /* Mobile focused */
     margin: 0 auto;
-    padding: 2rem;
+    padding: 20px;
 }
 
 header {
-    margin-bottom: 2rem;
     text-align: center;
+    margin-bottom: 24px;
 }
 
 header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
+    margin: 0;
     color: var(--text-primary);
+    font-size: 1.8rem;
 }
 
 header p {
+    margin: 4px 0 0;
     color: var(--text-secondary);
-    font-size: 1.1rem;
 }
 
-/* Grid Layout */
-.grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
-}
-
-/* Card Styling */
-.card {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
+/* List Item Styling */
+.list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--card-bg);
+    padding: 16px;
+    margin-bottom: 12px;
     border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+.item-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    overflow: hidden;
 }
 
-.card h2 {
-    font-size: 1.25rem;
-    margin-top: 0;
-    margin-bottom: 0.75rem;
-    color: var(--primary-color);
+.item-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: white;
+    flex-shrink: 0;
 }
 
-.card p.content {
-    font-size: 0.95rem;
-    line-height: 1.5;
-    color: var(--text-primary);
-    margin-bottom: 1rem;
+.item-icon.coins {
+    background: linear-gradient(135deg, #fbbf24, #d97706);
 }
 
-.card .timestamp {
+.item-icon.spins {
+    background: linear-gradient(135deg, #60a5fa, #2563eb);
+}
+
+.item-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* Text truncation fix */
+}
+
+.item-info h4 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 0.8rem;
     color: var(--text-secondary);
-    border-top: 1px solid var(--border-color);
-    padding-top: 0.75rem;
-    margin-top: auto;
+}
+
+.type-tag {
+    text-transform: uppercase;
+    font-weight: 600;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: #f3f4f6;
+}
+
+/* Button Styling */
+.btn-collect {
+    background: var(--text-primary);
+    color: white;
+    text-decoration: none;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    min-width: 80px;
+    text-align: center;
+}
+
+.btn-collect:hover {
+    transform: scale(1.05);
+}
+
+.btn-collect.collected {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--text-secondary);
+    pointer-events: none;
 }
 
 .loading {
-    grid-column: 1 / -1;
     text-align: center;
-    font-size: 1.2rem;
+    padding: 40px;
     color: var(--text-secondary);
-    padding: 2rem;
 }
