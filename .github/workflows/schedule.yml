@@ -2,7 +2,7 @@ name: Scrape Cron Job
 
 on:
   schedule:
-    - cron: '*/1 * * * *' # Every 1 minute
+    - cron: '*/15 * * * *' # Every 15 minutes
   workflow_dispatch: # Allows manual trigger for testing
 
 jobs:

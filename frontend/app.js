@@ -22,7 +22,7 @@ if (!firebaseConfig.projectId) {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const DB_PATH_PREFIX = "DB-3";
+const DB_PATH_PREFIX = "DB-1";
 
 function init() {
     console.log("Initializing...");
