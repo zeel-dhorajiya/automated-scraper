@@ -107,6 +107,7 @@ async function run() {
 
         await db.ref().update(updates);
         console.log("SUCCESS: Firebase Realtime Database updated.");
+        process.exit(0);
 
     } catch (error) {
         console.error('Error during scraping:', error);
