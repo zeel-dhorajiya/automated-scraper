@@ -1,14 +1,16 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 // ⚠️ REPLACE THIS WITH YOUR FIREBASE CONFIG
 const firebaseConfig = {
     // Paste your config object here
 };
 
+const linksContainer = document.getElementById('links-container');
+
 // Check if config is set
 if (!firebaseConfig.projectId) {
-    document.getElementById('links-container').innerHTML = `
+    linksContainer.innerHTML = `
         <div style="text-align: center; color: red; padding: 20px;">
             <h3>Configuration Required</h3>
             <p>Please open <code>frontend/app.js</code> and add your Firebase Config.</p>
@@ -18,47 +20,71 @@ if (!firebaseConfig.projectId) {
 }
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = getDatabase(app);
 
-const linksContainer = document.getElementById('links-container');
+const DB_PATH_PREFIX = "DB-3";
 
-async function fetchLinks() {
-    try {
-        const q = query(
-            collection(db, "scraped_data"),
-            orderBy("timestamp", "desc"),
-            limit(20)
-        );
+function init() {
+    console.log("Initializing...");
+    fetchLinks();
+}
 
-        const querySnapshot = await getDocs(q);
+function fetchLinks() {
+    // We listen to the entire DB-3 node to get both spins and coins, 
+    // or we can listen to them separately. Listening to parent is easier if data isn't huge.
+    // For efficiency, let's just listen to 'spins' and 'coins' separately and merge them.
+    // Actually, listening to the parent DB-3 is fine for this scale.
 
-        if (querySnapshot.empty) {
+    const dbRef = ref(db, DB_PATH_PREFIX);
+
+    onValue(dbRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) {
             renderEmptyState();
             return;
         }
 
-        linksContainer.innerHTML = ''; // Clear loading
+        let allLinks = [];
 
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            renderLinkItem(data);
-        });
+        if (data.spins) {
+            Object.values(data.spins).forEach(item => allLinks.push(item));
+        }
+        if (data.coins) {
+            Object.values(data.coins).forEach(item => allLinks.push(item));
+        }
 
-    } catch (error) {
-        console.error("Error fetching documents: ", error);
+        // Sort? The original code didn't seem to have a timestamp in the item object itself, 
+        // just a global lastUpdated. But usually users want newest first.
+        // The list is re-scraped every time, so the order in the array matches the order found on the page.
+        // We'll preserve that order or just reverse it if we want newest (top of page) first.
+        // Since we are merging two objects, order might be lost.
+        // Let's just render them. 
+
+        if (allLinks.length === 0) {
+            renderEmptyState();
+        } else {
+            linksContainer.innerHTML = '';
+            // Newest on page usually means "top". 
+            // We just render them.
+            allLinks.forEach(renderLinkItem);
+        }
+
+    }, (error) => {
+        console.error("Firebase Error:", error);
         linksContainer.innerHTML = `<div style="text-align:center; color: red;">Error loading data.</div>`;
-    }
+    });
 }
+
 
 function renderLinkItem(link) {
     const item = document.createElement('div');
     item.className = 'list-item';
 
     // Simple icon logic based on type
-    const iconChar = link.type === 'coins' ? 'C' : 'S'; // Placeholder since we don't have images yet
-    // If you want to use the images from the source project, you'd need to copy them to frontend/resources
+    const iconChar = link.type === 'coins' ? 'C' : 'S';
 
-    const dateStr = link.timestamp ? new Date(link.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    // We don't have per-item timestamp in the scraping logic we copied,
+    // so we omit the time in the list item or use generic text.
 
     item.innerHTML = `
         <div class="item-left">
@@ -69,14 +95,12 @@ function renderLinkItem(link) {
                 <h4>${link.title || 'Free Reward'}</h4>
                 <div class="meta">
                     <span class="type-tag">${link.type || 'reward'}</span>
-                    <span class="time">${dateStr}</span>
                 </div>
             </div>
         </div>
         <a href="${link.url}" target="_blank" class="btn-collect">GET</a>
     `;
 
-    // Click effect
     const btn = item.querySelector('.btn-collect');
     btn.addEventListener('click', () => {
         btn.classList.add('collected');
@@ -94,4 +118,4 @@ function renderEmptyState() {
     `;
 }
 
-fetchLinks();
+init();
