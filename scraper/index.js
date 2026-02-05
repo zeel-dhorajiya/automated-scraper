@@ -93,6 +93,7 @@ async function run() {
         // 4. Update Firebase
         const currentTime = Date.now();
         const readableTime = new Date().toLocaleString('en-US', {
+            timeZone: 'Asia/Kolkata',
             month: 'short', day: '2-digit', year: 'numeric',
             hour: '2-digit', minute: '2-digit', hour12: true
         });
