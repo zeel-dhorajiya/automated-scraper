@@ -1,0 +1,36 @@
+name: Scrape Cron Job
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # Every 15 minutes
+  workflow_dispatch: # Allows manual trigger for testing
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: scraper/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./scraper
+        run: npm install
+
+      - name: Create Service Account Key
+        # Secrets are not available in pull requests from forks
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > scraper/serviceAccountKey.json
+
+      - name: Run Scraper
+        working-directory: ./scraper
+        run: node index.js

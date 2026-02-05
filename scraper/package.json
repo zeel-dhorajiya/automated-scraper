@@ -1,0 +1,13 @@
+{
+  "name": "scraper",
+  "version": "1.0.0",
+  "description": "Scraper for scheduled data collection",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.11.0",
+    "puppeteer": "^21.5.0"
+  }
+}
