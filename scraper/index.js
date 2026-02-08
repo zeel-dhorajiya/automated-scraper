@@ -10,7 +10,8 @@ async function run() {
     // 1. Initialize Firebase Admin
     let db;
     try {
-        const serviceAccount = JSON.parse(fs.readFileSync('./serviceAccountKey.json', 'utf8'));
+        const path = require('path');
+        const serviceAccount = JSON.parse(fs.readFileSync(path.join(__dirname, 'serviceAccountKey.json'), 'utf8'));
         const projectId = serviceAccount.project_id;
 
         // Construct Database URL. 
@@ -69,24 +70,96 @@ async function run() {
         const newSpins = {};
         const newCoins = {};
 
-        elements.each((i, el) => {
-            const linkUrl = $(el).attr('href');
-            const linkTitle = $(el).text().trim() || "Free Reward";
-            const type = linkTitle.toLowerCase().includes("coin") ? "coins" : "spins";
+        // Helper to parse date from URL (e.g., _20260207)
+        function getDateFromUrl(url) {
+            const match = url.match(/_(\d{8})/);
+            if (match) {
+                const dateStr = match[1];
+                const year = dateStr.substring(0, 4);
+                const month = dateStr.substring(4, 6);
+                const day = dateStr.substring(6, 8);
+                return `${year}-${month}-${day}`;
+            }
+            return null;
+        }
 
-            const item = {
-                url: linkUrl,
-                title: linkTitle,
-                type: type
-            };
+        // Helper to parse date from Header (e.g., "February 6")
+        function getDateFromHeader(headerText) {
+            const currentYear = new Date().getFullYear();
+            // Match "Month DD"
+            const match = headerText.match(/([a-zA-Z]+)\s+(\d{1,2})/);
+            if (match) {
+                const monthName = match[1];
+                const day = match[2].padStart(2, '0');
+                const date = new Date(`${monthName} ${day}, ${currentYear}`);
+                if (!isNaN(date.getTime())) {
+                    // Format as YYYY-MM-DD
+                    const y = date.getFullYear();
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const d = String(date.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                }
+            }
+            if (headerText.toLowerCase().includes("today")) {
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+            return null;
+        }
 
-            // Generate a random ID (UUID-like)
-            const key = getUUID();
+        // Iterate over H2 headers to find sections
+        $('h2').each((i, headerEl) => {
+            const headerText = $(headerEl).text().trim();
+            let sectionDate = getDateFromHeader(headerText);
 
-            if (type === "spins") {
-                newSpins[key] = item;
-            } else {
-                newCoins[key] = item;
+            // Find the associated list (UL/OL)
+            let next = $(headerEl).next();
+            while (next.length && next[0].name !== 'ul' && next[0].name !== 'ol' && next[0].name !== 'h2') {
+                next = next.next();
+            }
+
+            if (next.length && (next[0].name === 'ul' || next[0].name === 'ol')) {
+                const links = next.find("a[href^='https://rewards.coinmaster.com'], a[href^='https://coinmaster.onelink.me']");
+
+                links.each((j, linkEl) => {
+                    const linkUrl = $(linkEl).attr('href');
+                    const linkTitle = $(linkEl).text().trim() || "Free Reward";
+                    const type = linkTitle.toLowerCase().includes("coin") ? "coins" : "spins";
+
+                    // Determine Date
+                    let itemDate = getDateFromUrl(linkUrl);
+                    if (!itemDate) {
+                        itemDate = sectionDate;
+                    }
+                    // Fallback to today if all else fails
+                    if (!itemDate) {
+                        const now = new Date();
+                        const y = now.getFullYear();
+                        const m = String(now.getMonth() + 1).padStart(2, '0');
+                        const d = String(now.getDate()).padStart(2, '0');
+                        itemDate = `${y}-${m}-${d}`;
+                    }
+
+                    const item = {
+                        url: linkUrl,
+                        title: linkTitle,
+                        type: type,
+                        date: itemDate,
+                        scraped_at: Date.now()
+                    };
+
+                    // Generate a random ID (UUID-like)
+                    const key = getUUID();
+
+                    if (type === "spins") {
+                        newSpins[key] = item;
+                    } else {
+                        newCoins[key] = item;
+                    }
+                });
             }
         });
 
