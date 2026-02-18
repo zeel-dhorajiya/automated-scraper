@@ -1,3 +1,3 @@
 node_modules/
-scraper/serviceAccountKey.json
+scraper/*.json
 .DS_Store

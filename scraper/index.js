@@ -8,29 +8,44 @@ const DB_PATH_PREFIX = "DB-1";
 
 async function run() {
     // 1. Initialize Firebase Admin
-    let db;
+    let db1, firestore1, db2, firestore2;
     try {
         const path = require('path');
-        const serviceAccount = JSON.parse(fs.readFileSync(path.join(__dirname, 'serviceAccountKey.json'), 'utf8'));
-        const projectId = serviceAccount.project_id;
+        const serviceAccount1 = JSON.parse(fs.readFileSync(path.join(__dirname, 'serviceAccountKey.json'), 'utf8'));
+        const serviceAccount2 = JSON.parse(fs.readFileSync(path.join(__dirname, 'serviceAccountKey2.json'), 'utf8'));
 
-        // Construct Database URL. 
-        // Note: Newer Firebase projects use <project-id>-default-rtdb.firebaseio.com
-        // Older ones use <project-id>.firebaseio.com
-        // We will try the default modern format.
-        const databaseURL = `https://${projectId}-default-rtdb.firebaseio.com`;
+        // Project 1
+        const projectId1 = serviceAccount1.project_id;
+        const databaseURL1 = `https://${projectId1}-default-rtdb.firebaseio.com`;
+
+        // Project 2
+        const projectId2 = serviceAccount2.project_id;
+        const databaseURL2 = `https://${projectId2}-default-rtdb.firebaseio.com`;
 
         if (!admin.apps.length) {
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-                databaseURL: databaseURL
-            });
+            // Initialize App 1
+            const app1 = admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount1),
+                databaseURL: databaseURL1
+            }, 'app1');
+            db1 = admin.database(app1);
+            firestore1 = admin.firestore(app1);
+
+            // Initialize App 2
+            const app2 = admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount2),
+                databaseURL: databaseURL2
+            }, 'app2');
+            db2 = admin.database(app2);
+            firestore2 = admin.firestore(app2);
+
+            console.log(`Firebase Apps initialized.`);
+            console.log(`Account 1: ${projectId1} (${databaseURL1})`);
+            console.log(`Account 2: ${projectId2} (${databaseURL2})`);
         }
-        console.log(`Firebase Admin initialized. Target DB: ${databaseURL}`);
-        db = admin.database();
 
     } catch (error) {
-        console.error('Error initializing Firebase Admin. Make sure serviceAccountKey.json exists.');
+        console.error('Error initializing Firebase Admin. Make sure both serviceAccountKey.json and serviceAccountKey2.json exist.');
         console.error(error);
         process.exit(1);
     }
@@ -70,15 +85,31 @@ async function run() {
         const newSpins = {};
         const newCoins = {};
 
+        // Helper to get ordinal suffix (st, nd, rd, th)
+        function getOrdinal(n) {
+            const s = ["th", "st", "nd", "rd"];
+            const v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        }
+
+        // Helper to format date string
+        function formatDate(date) {
+            if (!date) return null;
+            const day = getOrdinal(date.getDate());
+            const month = date.toLocaleString('en-US', { month: 'short' });
+            const year = date.getFullYear();
+            return `${day} ${month}, ${year}`;
+        }
+
         // Helper to parse date from URL (e.g., _20260207)
         function getDateFromUrl(url) {
             const match = url.match(/_(\d{8})/);
             if (match) {
                 const dateStr = match[1];
-                const year = dateStr.substring(0, 4);
-                const month = dateStr.substring(4, 6);
-                const day = dateStr.substring(6, 8);
-                return `${year}-${month}-${day}`;
+                const year = parseInt(dateStr.substring(0, 4));
+                const month = parseInt(dateStr.substring(4, 6)) - 1; // 0-indexed
+                const day = parseInt(dateStr.substring(6, 8));
+                return new Date(year, month, day);
             }
             return null;
         }
@@ -90,22 +121,15 @@ async function run() {
             const match = headerText.match(/([a-zA-Z]+)\s+(\d{1,2})/);
             if (match) {
                 const monthName = match[1];
-                const day = match[2].padStart(2, '0');
+                const day = match[2];
+                // Use default JS Date parsing
                 const date = new Date(`${monthName} ${day}, ${currentYear}`);
                 if (!isNaN(date.getTime())) {
-                    // Format as YYYY-MM-DD
-                    const y = date.getFullYear();
-                    const m = String(date.getMonth() + 1).padStart(2, '0');
-                    const d = String(date.getDate()).padStart(2, '0');
-                    return `${y}-${m}-${d}`;
+                    return date;
                 }
             }
             if (headerText.toLowerCase().includes("today")) {
-                const now = new Date();
-                const y = now.getFullYear();
-                const m = String(now.getMonth() + 1).padStart(2, '0');
-                const d = String(now.getDate()).padStart(2, '0');
-                return `${y}-${m}-${d}`;
+                return new Date();
             }
             return null;
         }
@@ -129,25 +153,22 @@ async function run() {
                     const linkTitle = $(linkEl).text().trim() || "Free Reward";
                     const type = linkTitle.toLowerCase().includes("coin") ? "coins" : "spins";
 
-                    // Determine Date
-                    let itemDate = getDateFromUrl(linkUrl);
-                    if (!itemDate) {
-                        itemDate = sectionDate;
+                    // Determine Date Object
+                    let dateObj = getDateFromUrl(linkUrl);
+                    if (!dateObj) {
+                        dateObj = sectionDate;
                     }
-                    // Fallback to today if all else fails
-                    if (!itemDate) {
-                        const now = new Date();
-                        const y = now.getFullYear();
-                        const m = String(now.getMonth() + 1).padStart(2, '0');
-                        const d = String(now.getDate()).padStart(2, '0');
-                        itemDate = `${y}-${m}-${d}`;
+                    // Fallback to today
+                    if (!dateObj) {
+                        dateObj = new Date();
                     }
 
                     const item = {
                         url: linkUrl,
                         title: linkTitle,
                         type: type,
-                        date: itemDate,
+                        date: formatDate(dateObj),
+                        timestamp: dateObj.getTime(),
                         scraped_at: Date.now()
                     };
 
@@ -163,7 +184,7 @@ async function run() {
             }
         });
 
-        // 4. Update Firebase
+        // 4. Update Firebase (Both Projects)
         const currentTime = Date.now();
         const readableTime = new Date().toLocaleString('en-US', {
             timeZone: 'Asia/Kolkata',
@@ -177,10 +198,43 @@ async function run() {
         updates[`${DB_PATH_PREFIX}/lastUpdated`] = currentTime;
         updates[`${DB_PATH_PREFIX}/lastUpdatedReadable`] = readableTime;
 
-        console.log(`Uploading ${Object.keys(newSpins).length} Spins and ${Object.keys(newCoins).length} Coins to ${DB_PATH_PREFIX}...`);
+        console.log(`Uploading data to both Firebase accounts...`);
 
-        await db.ref().update(updates);
-        console.log("SUCCESS: Firebase Realtime Database updated.");
+        const firestoreData = {
+            spins: newSpins,
+            coins: newCoins,
+            lastUpdated: currentTime,
+            lastUpdatedReadable: readableTime
+        };
+
+        // Execute all updates in parallel using allSettled so one failure doesn't stop the others
+        console.log("Starting parallel updates to all databases...");
+        const results = await Promise.allSettled([
+            // Project 1
+            db1.ref().update(updates).then(() => "Project 1: Realtime Database update success"),
+            firestore1.collection('scraped_data').doc(DB_PATH_PREFIX).set(firestoreData).then(() => "Project 1: Firestore update success"),
+
+            // Project 2
+            db2.ref().update(updates).then(() => "Project 2: Realtime Database update success"),
+            firestore2.collection('scraped_data').doc(DB_PATH_PREFIX).set(firestoreData).then(() => "Project 2: Firestore update success")
+        ]);
+
+        let successCount = 0;
+        results.forEach(result => {
+            if (result.status === 'fulfilled') {
+                console.log(`✅ ${result.value}`);
+                successCount++;
+            } else {
+                console.error(`❌ ${result.reason.message || result.reason}`);
+            }
+        });
+
+        if (successCount > 0) {
+            console.log(`Process completed with ${successCount}/4 updates successful.`);
+        } else {
+            console.error("All updates failed.");
+            process.exit(1);
+        }
         process.exit(0);
 
     } catch (error) {
