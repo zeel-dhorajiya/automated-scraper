@@ -28,8 +28,10 @@ jobs:
         # Secrets are not available in pull requests from forks
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_SERVICE_ACCOUNT_2: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_2 }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > scraper/serviceAccountKey.json
+          echo "$FIREBASE_SERVICE_ACCOUNT_2" > scraper/serviceAccountKey2.json
 
       - name: Run Scraper
         working-directory: ./scraper
