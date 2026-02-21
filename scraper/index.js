@@ -3,8 +3,35 @@ const cheerio = require('cheerio');
 const fs = require('fs');
 
 // --- CONFIGURATION ---
-const TARGET_URL = "https://levvvel.com/coin-master-free-spins-coins/";
+const TARGET_URL = "https://levvvel.com/coin-master-free-spins-coins-BROKEN-FOR-TESTING/";
 const DB_PATH_PREFIX = "DB-1";
+
+// --- TELEGRAM HELPER ---
+async function sendTelegramAlert(message) {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
+    if (!botToken || !chatId) {
+        console.warn("Telegram credentials not found in environment. Skipping alert.");
+        return;
+    }
+
+    try {
+        const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+        await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: `🚨 **Spins Scraper Alert** 🚨\n\n${message}`,
+                parse_mode: 'Markdown'
+            })
+        });
+        console.log("Telegram alert sent successfully.");
+    } catch (err) {
+        console.error("Failed to send Telegram alert:", err);
+    }
+}
 
 async function run() {
     // 1. Initialize Firebase Admin
@@ -47,6 +74,7 @@ async function run() {
     } catch (error) {
         console.error('Error initializing Firebase Admin. Make sure both serviceAccountKey.json and serviceAccountKey2.json exist.');
         console.error(error);
+        await sendTelegramAlert(`Critical Error: Firebase Admin Initialization Failed!\n\`\`\`${error.message}\`\`\``);
         process.exit(1);
     }
 
@@ -78,6 +106,7 @@ async function run() {
 
         if (elements.length === 0) {
             console.log("No links found. Exiting.");
+            await sendTelegramAlert("Warning: The scraper completed successfully but found **0 links** on the target page.");
             return;
         }
 
@@ -233,12 +262,14 @@ async function run() {
             console.log(`Process completed with ${successCount}/4 updates successful.`);
         } else {
             console.error("All updates failed.");
+            await sendTelegramAlert("Critical Error: All Firebase database updates failed!");
             process.exit(1);
         }
         process.exit(0);
 
     } catch (error) {
         console.error('Error during scraping:', error);
+        await sendTelegramAlert(`Critical Error: Scraping Process Failed!\n\`\`\`${error.message}\`\`\``);
         process.exit(1);
     }
 }
