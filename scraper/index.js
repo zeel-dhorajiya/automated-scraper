@@ -3,7 +3,7 @@ const cheerio = require('cheerio');
 const fs = require('fs');
 
 // --- CONFIGURATION ---
-const TARGET_URL = "https://levvvel.com/coin-master-free-spins-coins-BROKEN-FOR-TESTING/";
+const TARGET_URL = "https://levvvel.com/coin-master-free-spins-coins/";
 const DB_PATH_PREFIX = "DB-1";
 
 // --- TELEGRAM HELPER ---
