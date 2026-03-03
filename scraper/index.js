@@ -110,7 +110,24 @@ async function run() {
             return;
         }
 
-        // 3. Process Data for Realtime Database
+        // 3. Fetch Existing Data to Detect New Links
+        const existingUrls = new Set();
+        try {
+            console.log("Fetching existing data to check for new links...");
+            const snapshot = await db1.ref(DB_PATH_PREFIX).once('value');
+            const data = snapshot.val();
+            if (data) {
+                if (data.spins) Object.values(data.spins).forEach(item => existingUrls.add(item.url));
+                if (data.coins) Object.values(data.coins).forEach(item => existingUrls.add(item.url));
+            }
+            console.log(`Found ${existingUrls.size} existing links in database.`);
+        } catch (e) {
+            console.warn("Failed to fetch existing data for comparison:", e.message);
+        }
+
+        const newlyDiscoveredLinks = [];
+
+        // 4. Process Data for Realtime Database
         const newSpins = {};
         const newCoins = {};
 
@@ -201,6 +218,13 @@ async function run() {
                         scraped_at: Date.now()
                     };
 
+                    // Check if this is a newly discovered link
+                    if (!existingUrls.has(linkUrl)) {
+                        newlyDiscoveredLinks.push(item);
+                        // Also add it to the set so we don't count duplicates on the same page
+                        existingUrls.add(linkUrl);
+                    }
+
                     // Generate a random ID (UUID-like)
                     const key = getUUID();
 
@@ -213,7 +237,7 @@ async function run() {
             }
         });
 
-        // 4. Update Firebase (Both Projects)
+        // 5. Update Firebase (Both Projects)
         const currentTime = Date.now();
         const readableTime = new Date().toLocaleString('en-US', {
             timeZone: 'Asia/Kolkata',
@@ -260,6 +284,17 @@ async function run() {
 
         if (successCount > 0) {
             console.log(`Process completed with ${successCount}/4 updates successful.`);
+
+            // Notify user of newly discovered links
+            if (newlyDiscoveredLinks.length > 0) {
+                const spinsCount = newlyDiscoveredLinks.filter(l => l.type === 'spins').length;
+                const coinsCount = newlyDiscoveredLinks.filter(l => l.type === 'coins').length;
+                console.log(`Found ${newlyDiscoveredLinks.length} new links. Sending Telegram alert...`);
+                await sendTelegramAlert(`🎉 **Found New Links!** 🎉\n\n🎰 Spins: ${spinsCount}\n🪙 Coins: ${coinsCount}\n\nTotal new links added to database: ${newlyDiscoveredLinks.length}`);
+            } else {
+                console.log("No new links were found in this run.");
+            }
+
         } else {
             console.error("All updates failed.");
             await sendTelegramAlert("Critical Error: All Firebase database updates failed!");
