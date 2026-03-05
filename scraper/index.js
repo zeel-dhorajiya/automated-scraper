@@ -285,9 +285,7 @@ async function run() {
         if (successCount > 0) {
             console.log(`Process completed with ${successCount}/4 updates successful.`);
 
-            // FAKE DATA FOR TESTING
-            newlyDiscoveredLinks.push({ type: 'spins' });
-            newlyDiscoveredLinks.push({ type: 'coins' });
+
 
             // Notify user of newly discovered links
             if (newlyDiscoveredLinks.length > 0) {
