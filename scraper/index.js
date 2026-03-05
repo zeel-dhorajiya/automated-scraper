@@ -18,16 +18,22 @@ async function sendTelegramAlert(message) {
 
     try {
         const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-        await fetch(url, {
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: chatId,
-                text: `🚨 **Spins Scraper Alert** 🚨\n\n${message}`,
+                text: `🚨 *Spins Scraper Alert* 🚨\n\n${message}`,
                 parse_mode: 'Markdown'
             })
         });
-        console.log("Telegram alert sent successfully.");
+
+        if (!res.ok) {
+            const errorBody = await res.text();
+            console.error("Telegram API Error:", res.status, errorBody);
+        } else {
+            console.log("Telegram alert sent successfully.");
+        }
     } catch (err) {
         console.error("Failed to send Telegram alert:", err);
     }
@@ -285,14 +291,15 @@ async function run() {
         if (successCount > 0) {
             console.log(`Process completed with ${successCount}/4 updates successful.`);
 
-
+            // FAKE DATA FOR TESTING
+            newlyDiscoveredLinks.push({ type: 'spins' });
 
             // Notify user of newly discovered links
             if (newlyDiscoveredLinks.length > 0) {
                 const spinsCount = newlyDiscoveredLinks.filter(l => l.type === 'spins').length;
                 const coinsCount = newlyDiscoveredLinks.filter(l => l.type === 'coins').length;
                 console.log(`Found ${newlyDiscoveredLinks.length} new links. Sending Telegram alert...`);
-                await sendTelegramAlert(`🎉 **Found New Links!** 🎉\n\n🎰 Spins: ${spinsCount}\n🪙 Coins: ${coinsCount}\n\nTotal new links added to database: ${newlyDiscoveredLinks.length}`);
+                await sendTelegramAlert(`🎉 *Found New Links!* 🎉\n\n🎰 Spins: ${spinsCount}\n🪙 Coins: ${coinsCount}\n\nTotal new links added to database: ${newlyDiscoveredLinks.length}`);
             } else {
                 console.log("No new links were found in this run.");
             }
