@@ -5,7 +5,8 @@ on:
     - cron: '*/15 * * * *' # Every 15 minutes
   workflow_dispatch: # Allows manual trigger for testing
   push:
-
+    branches:
+      - main
 jobs:
   scrape:
     runs-on: ubuntu-latest
