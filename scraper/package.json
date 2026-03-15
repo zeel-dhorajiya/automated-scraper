@@ -4,7 +4,8 @@
   "description": "Scraper for scheduled data collection",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dice": "node dice_dreams.js"
   },
   "dependencies": {
     "firebase-admin": "^11.11.0",
